@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile - NOTEFY</title>
+  <style>
+    body {
+      margin: 0; font-family: Arial, sans-serif; height: 100vh; display: flex;
+      justify-content: center; align-items: center; overflow: hidden;
+    }
+    .overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(106, 13, 173, 0.6); z-index: -1;
+    }
+    .profile-container {
+      background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 15px;
+      box-shadow: 0px 4px 20px rgba(0,0,0,0.4); width: 380px;
+      text-align: center; position: relative; z-index: 2;
+    }
+    .profile-pic { width: 120px; height: 120px; border-radius: 50%; margin-bottom: 20px; }
+    h2 { margin-bottom: 10px; }
+    p { margin: 5px 0; color: #555; }
+    .btn {
+      padding: 10px 20px; margin: 10px 5px; border: none; border-radius: 8px;
+      background: gold; font-weight: bold; cursor: pointer;
+    }
+    .back-btn { background: #ccc; }
+    #editForm { display: none; margin-top: 20px; }
+    #editForm input { display: block; width: 80%; margin: 10px auto; padding: 10px; }
+  </style>
+</head>
+<body>
+  <div class="overlay"></div>
+  <div class="profile-container">
+    <img src="https://www.w3schools.com/howto/img_avatar.png" alt="Profile Picture" class="profile-pic">
+    <h2 id="name">Loading...</h2>
+    <p id="email">Email: ...</p>
+    <p id="joined">Joined: ...</p>
+    
+    <button class="btn" onclick="toggleForm()">Edit Profile</button>
+    <button class="btn back-btn" onclick="goBack()">⬅ Back to Dashboard</button>
+
+    <div id="editForm">
+      <input type="text" id="inputName" placeholder="Enter name">
+      <input type="email" id="inputEmail" placeholder="Enter email">
+      <button class="btn" onclick="saveProfile()">Save Changes</button>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('notefy-token');
+    if (!token) {
+        window.location.href = 'newlogin.html';
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const response = await fetch('/api/profile', {
+                headers: { 'x-access-token': token }
+            });
+            const user = await response.json();
+            if (user) {
+                document.getElementById('name').textContent = user.username;
+                document.getElementById('email').textContent = `Email: ${user.email}`;
+                const joinDate = new Date(user.join_date);
+                document.getElementById('joined').textContent = `Joined: ${joinDate.toLocaleDateString()}`;
+                
+                document.getElementById('inputName').value = user.username;
+                document.getElementById('inputEmail').value = user.email;
+            }
+        } catch (error) {
+            console.error('Failed to fetch profile:', error);
+        }
+    });
+    
+    function toggleForm() {
+      const form = document.getElementById("editForm");
+      form.style.display = form.style.display === "block" ? "none" : "block";
+    }
+    function goBack() {
+      window.location.href = 'Dashboard.html';
+    }
+
+    async function saveProfile() {
+      const newUsername = document.getElementById("inputName").value;
+      const newEmail = document.getElementById("inputEmail").value;
+      
+      try {
+        const response = await fetch('/api/profile', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-access-token': token
+            },
+            body: JSON.stringify({ username: newUsername, email: newEmail })
+        });
+        const result = await response.json();
+        if (result.success) {
+            alert('Profile updated successfully!');
+            document.getElementById('name').textContent = newUsername;
+            document.getElementById('email').textContent = `Email: ${newEmail}`;
+            toggleForm();
+        } else {
+            alert('Update failed.');
+        }
+      } catch (error) {
+        alert('An error occurred during update.');
+      }
+    }
+  </script>
+</body>
+</html>

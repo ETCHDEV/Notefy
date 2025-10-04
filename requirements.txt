@@ -1,0 +1,9 @@
+librosa
+numpy
+pydub
+scikit-learn
+joblib
+music21
+Flask
+mido
+midi2audio

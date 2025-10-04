@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signup - NOTEFY</title>
+  <style>
+    body {
+     margin: 0; font-family: Arial, sans-serif; background-color: rgba(106, 13, 173, 0.65);
+     min-height: 100vh; display: flex; justify-content: center; align-items: center;
+    }
+    .form-container {
+      background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 12px;
+      box-shadow: 0px 4px 15px rgba(0,0,0,0.3); width: 355px; text-align: center;
+    }
+    h2 { margin-bottom: 20px; color: #6A0DAD; }
+    input {
+      width: 80%; padding: 12px; margin: 12px auto; display: block;
+      border-radius: 8px; border: 1px solid #ccc; font-size: 1rem; outline: none;
+    }
+    button {
+      width: calc(80% + 24px); padding: 12px; margin-top: 10px; background: gold;
+      border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer;
+    }
+    .signup-link {
+      display: block; margin-top: 20px; color: #6A0DAD; text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <h2>Create an Account</h2>
+    <form id="signupForm">
+      <input type="text" id="username" placeholder="Username" required>
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
+      <button type="submit">Sign Up</button>
+      <a href="newlogin.html" class="signup-link">Already have an account? Login</a>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById("signupForm").addEventListener("submit", async function(event) {
+      event.preventDefault();
+
+      let password = document.getElementById("password").value;
+      let confirmPassword = document.getElementById("confirmPassword").value;
+
+      if (password.length < 8) { alert("Password must be at least 8 characters long."); return; }
+      if (!/[A-Z]/.test(password)) { alert("Password must contain at least one uppercase letter."); return; }
+      if (!/[a-z]/.test(password)) { alert("Password must contain at least one lowercase letter."); return; }
+      if (!/[0-9]/.test(password)) { alert("Password must contain at least one digit."); return; }
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) { alert("Password must contain at least one special character."); return; }
+      if (password !== confirmPassword) { alert("Passwords do not match!"); return; }
+
+      const username = document.getElementById("username").value;
+      const email = document.getElementById("email").value;
+
+      try {
+          const response = await fetch('/api/signup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username, email, password })
+          });
+          const result = await response.json();
+          if (result.success) {
+              alert('Signup successful! Please log in.');
+              window.location.href = 'newlogin.html';
+          } else {
+              alert(`Signup failed: ${result.message}`);
+          }
+      } catch (error) {
+          alert(`An error occurred: ${error}`);
+      }
+    });
+  </script>
+</body>
+</html>

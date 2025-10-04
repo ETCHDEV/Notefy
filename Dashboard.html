@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notefy - Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0;
+      height: 100vh; width: 100vw; background: #6a0dad; color: #333;
+    }
+    .container {
+      display: grid; grid-template-columns: 250px 1fr; grid-template-rows: 60px 1fr;
+      height: 100vh; width: 100vw; gap: 10px; background: #fff;
+    }
+    .title {
+     grid-column: span 2; background: #4b0082; color: #fff; display: flex; align-items: center;
+     padding: 0 20px; font-size: 24px; font-weight: bold; justify-content: space-between;
+    }
+    .profile-btn, .logout-btn {
+        background: gold; color: #4b0082; border: none; padding: 8px 12px;
+        border-radius: 6px; cursor: pointer; font-weight: bold; margin-left: 10px;
+    }
+    .sidebar { background: #f4f4f4; padding: 20px; overflow-y: auto; }
+    .main-content { padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+    .card { background: #fafafa; border: 1px solid #eee; border-radius: 8px; padding: 20px; }
+    .history-list { list-style: none; padding: 0; }
+    .history-item {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 8px; cursor: pointer; border-bottom: 1px solid #ddd;
+    }
+    .history-item:hover { background: #e9e9e9; }
+    .rename-btn {
+        background: #e0e0e0; color: #333; font-size: 10px; padding: 2px 5px;
+        border-radius: 3px; border: 1px solid #ccc; margin-top: 0;
+    }
+    button {
+        background-color: #3498db; color: white; border: none; padding: 10px 15px;
+        border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px;
+    }
+    button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+    .player-controls div { margin-top: 10px; }
+    #status-log, #results-area { margin-top: 15px; }
+    #status-log {
+        background-color: #ecf0f1; border: 1px solid #bdc3c7; border-radius: 5px; padding: 10px;
+        min-height: 80px; max-height: 150px; overflow-y: auto; white-space: pre-wrap;
+    }
+    #results-area a {
+        display: block; padding: 10px; background-color: #2ecc71; color: white;
+        text-decoration: none; border-radius: 5px; margin-top: 5px; text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="title">
+      <span>Notefy</span>
+      <div>
+        <button class="profile-btn" onclick="openProfile()">Profile</button>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+    <div class="sidebar">
+      <h3>History</h3>
+      <ul id="history-list" class="history-list"></ul>
+    </div>
+    <div class="main-content">
+      <div class="card">
+        <h3>Player & Audio Controls</h3>
+        <div class="player-controls">
+            <button id="play-pause-btn" disabled>Play</button>
+            <p id="now-playing" style="margin-left: 15px;">Upload a file to begin.</p>
+        </div>
+        
+        <div id="audio-controls-container" style="display: none;">
+          <div class="player-controls">
+            <label for="speed-control">Speed Control:</label>
+            <input type="range" id="speed-control" min="0.5" max="2" step="0.1" value="1">
+            <span id="speed-value">1.0x</span>
+          </div>
+          <div class="player-controls">
+            <label for="pitch-control">Pitch Control:</label>
+            <input type="range" id="pitch-control" min="-12" max="12" step="1" value="0">
+            <span id="pitch-value">0 semitones</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Transcribe New Song</h3>
+        <input type="file" id="fileUpload" accept=".mp3">
+        <button id="process-mp3-btn" onclick="startTranscription()" disabled>Begin Transcription</button>
+        
+        <div id="instrument-choice-card" style="display: none; margin-top: 20px;">
+          <h4>Select Instruments</h4>
+          <div id="instrument-list"></div>
+          <label><input type="checkbox" id="generate-midi-checkbox"> Also generate MIDI file?</label>
+        </div>
+
+        <div id="status-log"></div>
+        <div id="results-area"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('notefy-token');
+    if (!token) {
+        window.location.href = 'newlogin.html';
+    }
+
+    // --- Element References ---
+    const speedControl = document.getElementById("speed-control");
+    const speedValue = document.getElementById("speed-value");
+    const pitchControl = document.getElementById("pitch-control");
+    const pitchValue = document.getElementById("pitch-value");
+    const nowPlayingText = document.getElementById("now-playing");
+    const playPauseBtn = document.getElementById("play-pause-btn");
+    const audioControlsContainer = document.getElementById("audio-controls-container");
+    const fileUpload = document.getElementById("fileUpload");
+    const processBtn = document.getElementById("process-mp3-btn");
+    const statusLog = document.getElementById("status-log");
+    const instrumentChoiceCard = document.getElementById("instrument-choice-card");
+    const instrumentListDiv = document.getElementById("instrument-list");
+    const generateMidiCheckbox = document.getElementById("generate-midi-checkbox");
+    const resultsArea = document.getElementById("results-area");
+    const historyList = document.getElementById("history-list");
+
+    // --- Tone.js Audio Setup ---
+    let player;
+    const pitchShift = new Tone.PitchShift({ pitch: 0 }).toDestination();
+    let instrumentalPath = '';
+
+    // --- Helper Functions ---
+    function logStatus(message) { statusLog.textContent += message + '\n'; statusLog.scrollTop = statusLog.scrollHeight; }
+    function clearLog() { statusLog.textContent = ''; resultsArea.innerHTML = ''; instrumentChoiceCard.style.display = 'none'; }
+    function showResults(files) {
+        files.forEach(file => {
+            const link = document.createElement('a');
+            link.href = `/outputs/${file}`;
+            link.textContent = `Download ${file}`;
+            link.download = file;
+            resultsArea.appendChild(link);
+        });
+        loadHistory(); // Refresh history from DB after adding a new one
+    }
+    
+    // --- Event Listeners ---
+    speedControl.addEventListener("input", () => {
+      speedValue.textContent = parseFloat(speedControl.value).toFixed(1) + "x";
+      if (player) { player.playbackRate = speedControl.value; }
+    });
+    pitchControl.addEventListener("input", () => {
+      const pitch = parseInt(pitchControl.value);
+      pitchValue.textContent = pitch + " semitones";
+      pitchShift.pitch = pitch;
+    });
+    playPauseBtn.addEventListener("click", async () => {
+        await Tone.start();
+        if (player && player.loaded) {
+            if (player.state === "started") {
+                player.stop(); playPauseBtn.textContent = 'Play';
+            } else {
+                player.start(); playPauseBtn.textContent = 'Pause';
+            }
+        }
+    });
+
+    // --- Main File Upload Handler ---
+    fileUpload.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        clearLog();
+        playPauseBtn.disabled = true;
+        playPauseBtn.textContent = 'Loading...';
+        
+        await Tone.start();
+        
+        processBtn.disabled = false;
+        audioControlsContainer.style.display = 'block';
+        nowPlayingText.textContent = `Audio: ${file.name}`;
+        logStatus("Audio file selected. Click 'Begin Transcription' to start.");
+        
+        const fileUrl = URL.createObjectURL(file);
+        if (player) { player.dispose(); }
+
+        player = new Tone.Player(fileUrl, () => {
+            playPauseBtn.disabled = false;
+            playPauseBtn.textContent = 'Play';
+            logStatus("Audio player is ready.");
+        }).connect(pitchShift);
+    });
+
+    // --- History Management ---
+    async function loadHistory() {
+        const response = await fetch('/api/history', { headers: { 'x-access-token': token } });
+        const history = await response.json();
+        historyList.innerHTML = '';
+        history.forEach(item => {
+            const li = document.createElement("li");
+            const date = new Date(item.transcription_date).toLocaleDateString();
+            li.textContent = `${item.original_filename} (${date})`;
+            li.onclick = () => {
+                resultsArea.innerHTML = '';
+                if (item.output_pdf_path) {
+                    const link = document.createElement('a');
+                    link.href = `/outputs/${item.output_pdf_path}`;
+                    link.textContent = `Download ${item.output_pdf_path}`;
+                    link.download = item.output_pdf_path;
+                    resultsArea.appendChild(link);
+                }
+                if (item.output_midi_path) {
+                    const link = document.createElement('a');
+                    link.href = `/outputs/${item.output_midi_path}`;
+                    link.textContent = `Download ${item.output_midi_path}`;
+                    link.download = item.output_midi_path;
+                    resultsArea.appendChild(link);
+                }
+            };
+            historyList.appendChild(li);
+        });
+    }
+
+    // --- Main Transcription Workflow ---
+    async function startTranscription() {
+      const file = fileUpload.files[0];
+      if (!file) { alert('Please select an MP3 file first.'); return; }
+      
+      logStatus('Uploading and detecting instruments...');
+      processBtn.disabled = true;
+      processBtn.textContent = 'Detecting...';
+
+      const formData = new FormData();
+      formData.append('audio_file', file);
+      try {
+        const response = await fetch('/api/detect-instruments', { method: 'POST', body: formData, headers: { 'x-access-token': token }});
+        if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+        
+        const data = await response.json();
+        logStatus('Detection complete. Please make your selection.');
+        logStatus(`Detected: ${data.instruments.join(', ')}`);
+        
+        instrumentalPath = data.instrumental_path;
+        displayInstrumentChoices(data.instruments);
+      } catch (error) {
+        logStatus(`Error: ${error.message}`);
+      }
+    }
+
+    function displayInstrumentChoices(instruments) {
+        instrumentListDiv.innerHTML = `<label><input type="radio" name="instrument" value="combined" checked> All Instruments (Combined)</label>`;
+        instruments.forEach(instrument => {
+            instrumentListDiv.innerHTML += `<br><label><input type="radio" name="instrument" value="${instrument}"> Individual: ${instrument}</label>`;
+        });
+        
+        instrumentChoiceCard.style.display = 'block';
+        processBtn.textContent = '2. Generate Sheet Music';
+        processBtn.onclick = generateSheetMusic;
+        processBtn.disabled = false;
+    }
+
+    async function generateSheetMusic() {
+        const selectedRadio = document.querySelector('input[name="instrument"]:checked');
+        if (!selectedRadio) return;
+        
+        logStatus('Requesting sheet music generation...');
+        processBtn.disabled = true;
+        processBtn.textContent = 'Generating...';
+
+        let instrumentsToGenerate = [];
+        if (selectedRadio.value === 'combined') {
+            const allRadios = document.querySelectorAll('input[name="instrument"]');
+            instrumentsToGenerate.push(Array.from(allRadios).map(r => r.value).filter(v => v !== 'combined'));
+        } else {
+            instrumentsToGenerate.push([selectedRadio.value]);
+        }
+        
+        try {
+            const response = await fetch('/api/generate-sheet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-access-token': token },
+                body: JSON.stringify({
+                    instrumental_path: instrumentalPath,
+                    instruments_to_generate: instrumentsToGenerate,
+                    generate_midi: generateMidiCheckbox.checked
+                }),
+            });
+            if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+            const data = await response.json();
+            logStatus('Generation complete! Your files are ready below.');
+            showResults(data.output_files);
+        } catch (error) {
+            logStatus(`Error: ${error.message}`);
+        } finally {
+            processBtn.disabled = false;
+            processBtn.textContent = 'Begin Transcription';
+            processBtn.onclick = startTranscription;
+        }
+    }
+    
+    // --- Profile and Logout Functions ---
+    function openProfile() { window.location.href = "profil.html"; }
+    function logout() {
+        localStorage.removeItem('notefy-token');
+        window.location.href = 'newlogin.html';
+    }
+
+    // --- Load history on page start ---
+    document.addEventListener('DOMContentLoaded', loadHistory);
+  </script>
+</body>
+</html>
