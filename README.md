@@ -45,11 +45,12 @@ Follow these steps to set up the project on a macOS environment.
 
 ### 1. Prerequisites
 - **Homebrew:** Make sure you have Homebrew installed.
+- **For Windows & Linux:** Don't need to install homebrew.
 - **MySQL:** You need a running MySQL server.
 
 ### 2. Clone the Repository
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/ETCHDEV/Notefy.git
 cd notefy
 ```
 
@@ -58,44 +59,13 @@ Install required system libraries using Homebrew.
 ```bash
 brew install mysql fluidsynth musescore
 ```
-*Note: Ensure the MuseScore application is in your `/Applications` folder.*
+For Windows & Linux:
+Search gpt for installing fluidsynth and musescore
+
+*Note: Ensure the MuseScore application is in your `/Applications` folder (Only for MacOS).*
 
 ### 4. Database Setup
-Log in to MySQL and create the database and tables.
-```bash
-mysql -u root
-```
-Inside the MySQL prompt, run:
-```sql
-CREATE DATABASE notefy_db;
-USE notefy_db;
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(100) NOT NULL UNIQUE,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    join_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE transcriptions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    original_filename VARCHAR(255) NOT NULL,
-    output_pdf_path VARCHAR(255),
-    output_midi_path VARCHAR(255),
-    transcription_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    speed FLOAT DEFAULT 1.0,
-    pitch_offset INT DEFAULT 0,
-    selected_instruments TEXT,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-CREATE TABLE user_settings (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL UNIQUE,
-    pitch_offset INT DEFAULT 0,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-EXIT;
-```
+Log in to MySQL and import the .sql file.
 
 ### 5. Python Environment
 Create and activate a virtual environment, then install the required packages.
@@ -104,11 +74,14 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
+For Windows:
+Ask ChatGPT
 
 ## How to Use
 
 ### 1. Train the Model
 You only need to do this once. This script will process the datasets and create the instrument classifier. **This will take a long time.**
+(No need has I have included an trained model)
 ```bash
 python train_instrument_model.py
 ```
@@ -118,6 +91,8 @@ Start the Flask backend server.
 ```bash
 python server.py
 ```
+For Windows & Linux:
+Ask ChatGPT if any error occurs
 
 ### 3. Access the Application
 Open your web browser and navigate to:
@@ -130,3 +105,5 @@ You can now sign up for an account, log in, and start transcribing music!
 - **Monophonic Transcription:** The system is designed to detect the single, most dominant melodic line. It cannot transcribe polyphonic music (multiple notes at once, like chords).
 - **Rhythm Simplification:** Complex rhythms and timing nuances are simplified (quantized), so the output may not capture the full rhythmic feel of the original performance.
 - **Expressive Details:** The transcription does not include dynamics (loud/soft), articulations, or other performance expressions.
+
+### For any errors and doubt, ask any generative AI like Gemini or ChatGPT by inputing the code + error after that and ask to optimize it to your platform. Has I have no time to give solution to any errors and being on MacOS, some code was hardwired to MacOS.
